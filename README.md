@@ -1,217 +1,225 @@
-# ?? LocalhostMiniOTG
+Ôªø# üé¨ LocalhostMiniOTG
 
-A **zero-config LAN media server** ó stream your videos, photos, and music from your PC to any device on your network. Just run the `.exe`, point it at a folder, and open the URL on your phone.
+**Stream videos, photos, and music from your PC to your iPhone (or any device) over Wi-Fi.**
 
-Built for the simplest possible "I want to watch my files on my iPhone" experience.
+No apps to install. No cloud. No accounts. Just run the `.exe` and open the URL on your phone.
 
-![.NET 10](https://img.shields.io/badge/.NET-10-purple)
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-
----
-
-## ? Features
-
-### ?? Video Streaming
-- **Direct play** ó MP4, MOV, M4V, WebM stream natively to any browser
-- **HLS for MKV/AVI/WMV** ó automatically transcodes piece-by-piece into HLS segments so iPhone Safari can play them natively (no app needed)
-- **GPU-accelerated** ó auto-detects NVIDIA NVENC, Intel QuickSync, or AMD AMF
-- **Instant seek** ó full seek bar from the start; seeking ahead restarts FFmpeg at that position
-- **Range requests** ó proper `206 Partial Content` support for all devices
-
-### ?? Photo Viewer
-- **Formats** ó JPG, PNG, GIF, BMP, WebP
-- **RAW support** ó CR2 (Canon), NEF (Nikon), ARW (Sony), DNG ó auto-converted to JPEG via FFmpeg
-- **Thumbnail grid** ó small 300px JPEG thumbnails generated on the fly and cached in RAM
-- **Gallery navigation** ó ? ? buttons to browse through photos
-
-### ?? Audio Player
-- **Formats** ó MP3, FLAC, WMA, AAC, OGG, WAV, M4A
-- Native browser audio player with full controls
-
-### ?? Dedicated Music Player (`/Music`)
-- **Separate tab** ó music keeps playing while you browse other content
-- **iPhone lock screen controls** ó track title, prev/next via Media Session API
-- **Background playback** ó lock your iPhone, music keeps playing
-- **Playlist mode** ó auto-plays next track, shuffle, repeat
-- **Prev / Stop / Next / Shuffle / Repeat** controls
-- **Spinning disc** animation while playing
-- **? Favorite folders** ó bookmark your music folders for one-tap access
-- **"Open Music Player"** button on the main page opens it in a new tab
-
-### ?? File Browser
-- Built-in folder picker ó browse drives and folders from the web UI
-- Breadcrumb navigation for subfolders
-- Media counts shown per folder (videos, photos, audio)
-- ? Save favorite folder locations (persisted to `favorites.json`)
-
-### ?? Zero Config
-- **Single `.exe`** ó no install, no dependencies (self-contained .NET 10)
-- **Auto-opens browser** on startup
-- **Auto-configures Windows Firewall** for LAN access
-- **Remembers your media folder** between sessions
-- Shows LAN IP in console ó just share the URL
+[![.NET 10](https://img.shields.io/badge/.NET-10.0-purple?logo=dotnet)](https://dotnet.microsoft.com/)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/decester/LocalhostMiniOTG)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
-## ?? Quick Start
+## üí° What it does
 
-### 1. Download
+You have files on your PC. You want to watch/listen/view them on your phone. That's it.
 
-Grab `LocalhostMiniOTG.exe` from [Releases](../../releases).
+- üé¨ **Videos** play in the browser - even MKV and AVI on iPhone (auto-transcoded to HLS)
+- üì∑ **Photos** display with thumbnails and a gallery - even Canon CR2 RAW files
+- üéµ **Music** plays in a dedicated player - keeps playing when you lock your iPhone
 
-### 2. (Optional) Add FFmpeg
+---
 
-Only needed for MKV/AVI playback on iPhone and RAW photo support.
+## üöÄ Quick Start
 
-1. Download from [gyan.dev/ffmpeg/builds](https://www.gyan.dev/ffmpeg/builds/) ? **ffmpeg-release-essentials.zip**
-2. Extract ? find `bin\ffmpeg.exe` and `bin\ffprobe.exe`
-3. Copy both into the **same folder** as `LocalhostMiniOTG.exe`
+### 1. üì• Download
 
-### 3. Run
+Grab `LocalhostMiniOTG.exe` from [Releases](https://github.com/decester/LocalhostMiniOTG/releases).
+
+### 2. üé¨ (Optional) Add FFmpeg
+
+Only needed for MKV/AVI streaming and RAW photo support.
+
+Download from [gyan.dev/ffmpeg/builds](https://www.gyan.dev/ffmpeg/builds/) (get **essentials** build), extract `ffmpeg.exe` and `ffprobe.exe`, and place them next to `LocalhostMiniOTG.exe`.
+
+### 3. ‚ñ∂Ô∏è Run
 
 ```
 LocalhostMiniOTG.exe
 ```
 
-You'll see:
-
 ```
 ===========================================
-  ?? LocalhostMiniOTG is running!
+  LocalhostMiniOTG is running!
   Local:   http://localhost:9090
   Network: http://192.168.1.50:9090
-  Firewall: rule auto-configured ?
-  FFmpeg:  found ?
-  GPU:     NVIDIA NVENC (RTX/GTX) ?
+  Firewall: rule auto-configured
+  FFmpeg:  found
+  GPU:     NVIDIA NVENC (RTX/GTX)
   Press Ctrl+C to stop the server.
 ===========================================
 ```
 
-### 4. Open on your phone
+### 4. üì± Open on your phone
 
-Open `http://192.168.1.50:9090` (your Network URL) in Safari or Chrome.
-
----
-
-## ?? iPhone Compatibility
-
-| Format | iPhone Safari | How |
-|--------|:---:|---|
-| MP4, MOV, M4V | ? | Direct streaming |
-| MKV, AVI, WMV, FLV | ? | HLS transcoding (needs FFmpeg) |
-| JPG, PNG, GIF, WebP | ? | Direct |
-| CR2, NEF, ARW, DNG | ? | Auto-converted to JPEG (needs FFmpeg) |
-| MP3, AAC, WAV, M4A | ? | Direct |
-| FLAC, OGG | ? | Native browser support |
-| WMA | ?? | Limited browser support |
-
-### ?? iPhone Music Experience
-
-Play music on your iPhone ó lock the screen ó **it keeps playing.** Full lock screen controls work:
-
-```
-???????????????????????????????????
-?  ?? iPhone Lock Screen          ?
-?                                 ?
-?    ?? My Favorite Song          ?
-?       LocalhostMiniOTG          ?
-?       Music                     ?
-?                                 ?
-?    ??    ?    ??                ?
-?    ??????????????? 2:34 / 4:12 ?
-???????????????????????????????????
-```
-
-**How:** Open `/Music` in Safari ? play a track ? lock phone ? enjoy ??
-
-This works because the dedicated Music page uses the [Media Session API](https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API), which tells iOS to show track info and playback controls on the lock screen and Control Center.
+Type the **Network** URL into Safari or Chrome on your phone. Done.
 
 ---
 
-## ??? Architecture
+## ‚ú® Features
+
+### üé¨ Video Streaming
+
+| What | How |
+|---|---|
+| MP4, MOV, M4V, WebM | Direct play - no conversion needed |
+| MKV, AVI, WMV, FLV | Auto-transcoded to HLS (piece by piece, cached in RAM) |
+| GPU acceleration | Auto-detects NVIDIA NVENC, Intel QuickSync, AMD AMF |
+| Seeking | Full seek bar from the start - seeking ahead restarts FFmpeg at that position |
+| Range requests | Proper `206 Partial Content` for all devices |
+
+### üì∏ Photo Viewer
+
+| What | How |
+|---|---|
+| JPG, PNG, GIF, BMP, WebP | Direct display |
+| CR2, NEF, ARW, DNG | RAW files auto-converted to JPEG via FFmpeg |
+| Thumbnails | 300px JPEG thumbnails generated on the fly, cached in RAM |
+| Gallery | Previous / Next navigation, photo counter |
+
+### üéß Music Player (`/Music` page)
+
+A dedicated music player that opens in its own browser tab.
+
+| What | How |
+|---|---|
+| MP3, FLAC, AAC, OGG, WAV, M4A, WMA | Native browser audio with full controls |
+| Background playback | Lock your iPhone - music keeps playing |
+| Lock screen controls | Track title + prev/next buttons on iOS lock screen |
+| Playlist | Auto-plays next track, shuffle, repeat |
+| Favorite folders | Bookmark folders for one-tap access |
+
+**üî• This is the killer feature.** Open `/Music` on your iPhone, pick a folder, hit play, lock the phone - it just works. Track info shows on the lock screen with skip controls, powered by the [Media Session API](https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API).
+
+```
++-----------------------------------+
+|  iPhone Lock Screen               |
+|                                   |
+|     My Favorite Song              |
+|     LocalhostMiniOTG              |
+|                                   |
+|     |<<      >>|     >>|          |
+|     ========o========= 2:34/4:12 |
++-----------------------------------+
+```
+
+### üìÅ File Browser and Favorites
+
+- üìÇ Built-in folder picker (browse drives and directories from the web UI)
+- ü™ß Breadcrumb navigation
+- üìä Media counts per folder (videos, photos, audio)
+- ‚≠ê Star button to save favorite folders (persisted across restarts)
+
+### üîß Zero Config
+
+- üì¶ **Single `.exe`** - self-contained, no install, no runtime needed
+- üåê **Auto-opens browser** on startup
+- üõ°Ô∏è **Auto-configures Windows Firewall** rule for LAN access
+- üíæ **Remembers** your media folder and favorites between sessions
+- üìü **Console shows LAN IP** - just share it
+
+---
+
+## üì± iPhone Compatibility
+
+| Format | Works | Method |
+|---|:---:|---|
+| MP4, MOV, M4V | ‚úÖ | Direct streaming |
+| MKV, AVI, WMV, FLV | ‚úÖ | HLS transcoding (needs FFmpeg) |
+| JPG, PNG, GIF, WebP | ‚úÖ | Direct |
+| CR2, NEF, ARW, DNG | ‚úÖ | Converted to JPEG (needs FFmpeg) |
+| MP3, AAC, WAV, M4A, FLAC, OGG | ‚úÖ | Native browser playback |
+| WMA | ‚ö†Ô∏è | Limited browser support |
+
+---
+
+## üéûÔ∏è How HLS Streaming Works
+
+When you play an MKV on iPhone, the server does not convert the whole file first:
+
+```
+1. ffprobe reads the total duration
+2. A complete .m3u8 playlist is generated upfront (full seek bar)
+3. FFmpeg starts encoding 4-second .ts segments
+4. Segments are cached in RAM, temp files deleted
+5. iPhone requests segments on demand
+6. If you seek ahead, FFmpeg restarts with -ss at that position
+```
+
+GPU encoding (NVENC/QSV/AMF) is auto-detected and used when available. Falls back to `libx264 ultrafast` on CPU.
+
+---
+
+## üèóÔ∏è Architecture
 
 ```
 LocalhostMiniOTG.exe
-??? Razor Pages UI (dark theme, responsive)
-??? /Music            ? dedicated music player (lock screen controls)
-??? /api/stream       ? serves any file with range request support
-??? /api/photo/thumb  ? generates & caches 300px JPEG thumbnails
-??? /api/photo        ? converts RAW ? JPEG via FFmpeg
-??? /api/hls/start    ? starts HLS transcoding session
-??? /api/hls/{id}/*   ? serves m3u8 playlist & .ts segments
-??? /api/favorites    ? save/load favorite folder bookmarks
-??? /api/browse/*     ? drive & folder browser
-```
-
-### HLS Streaming (MKV ? iPhone)
-
-```
-MKV file ? ffprobe (get duration) ? generate full VOD playlist
-         ? FFmpeg splits into 4-sec .ts segments
-         ? segments cached in RAM, files deleted
-         ? iPhone requests segments on demand
-         ? seek ahead? FFmpeg restarts with -ss at that position
+|-- /              Main UI (video player, photo gallery, file browser)
+|-- /Music         Dedicated music player with playlist and lock screen controls
+|-- /api/stream    Serves any media file with byte-range support
+|-- /api/photo/thumb  Generates and caches 300px JPEG thumbnails
+|-- /api/photo     Converts RAW photos to JPEG via FFmpeg
+|-- /api/hls/*     HLS session management and segment serving
+|-- /api/favorites Favorite folder bookmarks (GET/POST/DELETE)
+|-- /api/browse/*  Drive and folder browser
 ```
 
 ---
 
-## ??? Build from Source
+## üõ†Ô∏è Build from Source
 
 Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
-# Clone
-git clone https://github.com/YOUR_USERNAME/LocalhostMiniOTG.git
+git clone https://github.com/decester/LocalhostMiniOTG.git
 cd LocalhostMiniOTG
 
-# Run in development
+# Run
 dotnet run --project LocalhostMiniOTG
 
 # Publish single-file exe
-dotnet publish LocalhostMiniOTG\LocalhostMiniOTG.csproj -c Release -o publish
+dotnet publish LocalhostMiniOTG/LocalhostMiniOTG.csproj -c Release -o publish
 ```
 
 ---
 
-## ?? Project Structure
+## üìÇ Project Structure
 
 ```
 LocalhostMiniOTG/
-??? Program.cs                      # API endpoints & server setup
-??? Services/
-?   ??? MediaLibraryService.cs      # File listing, folder browsing, favorites
-?   ??? HlsStreamManager.cs        # HLS transcoding, GPU detection, segment caching
-??? Pages/
-?   ??? Index.cshtml                # Main UI (player, gallery, browser)
-?   ??? Index.cshtml.cs             # Page model
-?   ??? Music.cshtml                # Dedicated music player (playlist, lock screen)
-?   ??? Music.cshtml.cs             # Music page model
-?   ??? Shared/_Layout.cshtml       # Dark theme layout with nav tabs
-??? wwwroot/css/site.css            # Custom styles
+  Program.cs                        API endpoints, server setup, firewall config
+  Services/
+    MediaLibraryService.cs          File listing, folder browsing, favorites
+    HlsStreamManager.cs            HLS transcoding, GPU detection, seek, segment cache
+  Pages/
+    Index.cshtml / .cs              Main page (video, photo, audio, file browser)
+    Music.cshtml / .cs              Dedicated music player (playlist, lock screen)
+    Shared/_Layout.cshtml           Dark theme layout, navigation
+  wwwroot/css/site.css              Custom styles
 ```
 
 ---
 
-## ?? Configuration
+## ‚öôÔ∏è Configuration
 
-| Setting | Default | How to change |
+| Setting | Default | Override |
 |---|---|---|
 | Port | `9090` | `--urls http://0.0.0.0:8080` |
-| Media folder | `Movies/` subfolder | Change in web UI |
-| FFmpeg location | Auto-detected | Place next to `.exe` or in `PATH` |
+| Media folder | `Movies/` | Change in web UI |
+| FFmpeg | Auto-detected | Place next to `.exe` or add to `PATH` |
+| Favorites | `favorites.json` | Managed via web UI |
 
 ---
 
-## ?? Credits
+## üôè Credits
 
-- [FFmpeg](https://ffmpeg.org/) ó video/audio transcoding & RAW photo conversion
-- [hls.js](https://github.com/video-dev/hls.js/) ó HLS playback in Chrome/Firefox
-- [Bootstrap 5](https://getbootstrap.com/) ó responsive dark UI
-- [Bootstrap Icons](https://icons.getbootstrap.com/) ó iconography
+- [FFmpeg](https://ffmpeg.org/) - transcoding, RAW conversion, duration probing
+- [hls.js](https://github.com/video-dev/hls.js/) - HLS playback for Chrome/Firefox
+- [Bootstrap 5](https://getbootstrap.com/) - dark responsive UI
+- [Bootstrap Icons](https://icons.getbootstrap.com/) - icons
 
 ---
 
-## ?? License
+## üìÑ License
 
-MIT ó do whatever you want with it.
+[MIT](LICENSE) - use it however you want.
