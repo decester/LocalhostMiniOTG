@@ -1,0 +1,412 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Media Player";
+}
+
+<!-- Folder Picker Modal -->
+<div class="modal fade" id="folderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:#1a1a2e;">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-light"><i class="bi bi-folder2-open me-2"></i>Choose Media Folder</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="currentBrowsePath" class="text-info small mb-2 text-break" style="font-family:monospace;"></div>
+                <div id="driveList" class="mb-3"></div>
+                <div id="folderList" style="max-height:50vh;overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" id="btnSelectFolder" disabled>
+                    <i class="bi bi-check-lg me-1"></i>Use This Folder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Bar -->
+<div class="settings-bar d-flex align-items-center gap-2 mb-4 p-2 rounded" style="background:#1a1a2e;">
+    <i class="bi bi-folder-fill text-warning"></i>
+    <code class="text-info flex-grow-1 text-truncate" title="@Model.MediaRoot">@Model.MediaRoot</code>
+    <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#folderModal">
+        <i class="bi bi-folder2-open me-1"></i>Change Folder
+    </button>
+</div>
+
+
+@if (!string.IsNullOrEmpty(Model.NowPlaying))
+{
+    <div class="player-section mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="text-light mb-0">
+                <i class="bi bi-play-circle-fill me-2"></i>@Model.NowPlayingName
+            </h4>
+            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+        </div>
+
+        @if (Model.NowPlayingUseHls)
+        {
+            <!-- HLS: loading spinner, removed once video plays -->
+            <div id="hlsLoading" style="min-height:260px; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:8px;">
+                <div class="spinner-border text-info mb-3" role="status"></div>
+                <p class="text-light small mb-0">Preparing stream…</p>
+            </div>
+            <!-- HLS: video player, hidden until ready -->
+            <div id="hlsPlayerWrap" class="video-wrapper" style="display:none;">
+                <video id="videoPlayer" controls autoplay playsinline webkit-playsinline></video>
+            </div>
+        }
+        else
+        {
+            <div class="video-wrapper">
+                <video id="videoPlayer" controls autoplay playsinline webkit-playsinline preload="auto">
+                    <source src="/api/stream?file=@Uri.EscapeDataString(Model.NowPlaying)" type="@Model.NowPlayingType" />
+                </video>
+            </div>
+        }
+    </div>
+}
+
+<!-- Photo Viewer -->
+@if (!string.IsNullOrEmpty(Model.ViewingPhoto))
+{
+    <div class="player-section mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="text-light mb-0">
+                <i class="bi bi-image me-2"></i>@Model.ViewingPhotoName
+            </h4>
+            <div>
+                @if (Model.ViewingPhotoIndex > 0)
+                {
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@Model.Photos[Model.ViewingPhotoIndex - 1].RelativePath" class="btn btn-sm btn-outline-light me-1"><i class="bi bi-chevron-left"></i></a>
+                }
+                @if (Model.ViewingPhotoIndex >= 0 && Model.ViewingPhotoIndex < Model.Photos.Count - 1)
+                {
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@Model.Photos[Model.ViewingPhotoIndex + 1].RelativePath" class="btn btn-sm btn-outline-light me-1"><i class="bi bi-chevron-right"></i></a>
+                }
+                <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+            </div>
+        </div>
+        <div class="text-center rounded" style="background:#000; padding:8px;">
+            @{
+                var photoExt = System.IO.Path.GetExtension(Model.ViewingPhoto!).ToLowerInvariant();
+                var isRaw = photoExt is ".cr2" or ".nef" or ".arw" or ".dng";
+                var photoSrc = isRaw
+                    ? $"/api/photo?file={Uri.EscapeDataString(Model.ViewingPhoto!)}"
+                    : $"/api/stream?file={Uri.EscapeDataString(Model.ViewingPhoto!)}";
+            }
+            <img src="@photoSrc" alt="@Model.ViewingPhotoName"
+                 style="max-width:100%; max-height:75vh; object-fit:contain; border-radius:4px;" />
+        </div>
+        @if (Model.Photos.Count > 1)
+        {
+            <div class="text-center text-secondary small mt-1">@(Model.ViewingPhotoIndex + 1) / @Model.Photos.Count</div>
+        }
+    </div>
+}
+
+<!-- Audio Player -->
+@if (!string.IsNullOrEmpty(Model.PlayingAudio))
+{
+    <div class="player-section mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="text-light mb-0">
+                <i class="bi bi-music-note-beamed me-2"></i>@Model.PlayingAudioName
+            </h4>
+            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+        </div>
+        <div class="p-3 rounded" style="background:#1a1a2e;">
+            <audio id="audioPlayer" controls autoplay style="width:100%;">
+                <source src="/api/stream?file=@Uri.EscapeDataString(Model.PlayingAudio)" type="@Model.PlayingAudioType" />
+            </audio>
+        </div>
+    </div>
+}
+
+<!-- Breadcrumb Navigation -->
+@if (!string.IsNullOrEmpty(Model.CurrentFolder))
+{
+    <nav class="mb-3">
+        <ol class="breadcrumb" style="--bs-breadcrumb-divider:'›';">
+            <li class="breadcrumb-item"><a asp-page="/Index" class="text-info">🏠 Root</a></li>
+            @{
+                var parts = Model.CurrentFolder.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    var partial = string.Join("/", parts.Take(i + 1));
+                    if (i == parts.Length - 1)
+                    {
+                        <li class="breadcrumb-item active text-light">@parts[i]</li>
+                    }
+                    else
+                    {
+                        <li class="breadcrumb-item"><a asp-page="/Index" asp-route-folder="@partial" class="text-info">@parts[i]</a></li>
+                    }
+                }
+            }
+        </ol>
+    </nav>
+}
+
+<!-- Subfolders -->
+@if (Model.Subfolders.Count > 0)
+{
+    <div class="mb-4">
+        <h5 class="text-light mb-2"><i class="bi bi-folder me-2"></i>Folders</h5>
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-2">
+            @foreach (var folder in Model.Subfolders)
+            {
+                <div class="col">
+                    <a asp-page="/Index" asp-route-folder="@folder.RelativePath" class="text-decoration-none">
+                        <div class="folder-card p-2 rounded text-center">
+                            <i class="bi bi-folder-fill text-warning" style="font-size:2rem;"></i>
+                            <div class="text-truncate text-light small mt-1" title="@folder.Name">@folder.Name</div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Video Library -->
+<div class="library-section">
+    @if (Model.Videos.Count > 0)
+    {
+        <h5 class="text-light mb-3"><i class="bi bi-collection-play me-2"></i>Videos (@Model.Videos.Count)</h5>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 mb-4">
+            @foreach (var video in Model.Videos)
+            {
+                <div class="col">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-play="@video.RelativePath" class="text-decoration-none">
+                        <div class="card movie-card h-100 @(Model.NowPlaying == video.RelativePath ? "border-primary" : "")">
+                            <div class="card-thumb d-flex align-items-center justify-content-center">
+                                <span class="play-icon">&#9654;</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <h6 class="card-title text-truncate mb-1" title="@video.DisplayName">@video.DisplayName</h6>
+                                <small class="text-secondary">@video.FormattedSize &middot; @System.IO.Path.GetExtension(video.FileName).TrimStart('.').ToUpper()</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Model.Photos.Count > 0)
+    {
+        <h5 class="text-light mb-3"><i class="bi bi-images me-2"></i>Photos (@Model.Photos.Count)</h5>
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-2 mb-4">
+            @foreach (var photo in Model.Photos)
+            {
+                <div class="col">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@photo.RelativePath" class="text-decoration-none">
+                        <div class="card movie-card h-100 @(Model.ViewingPhoto == photo.RelativePath ? "border-primary" : "")">
+                            <div style="height:100px; overflow:hidden; background:#16213e; border-radius:8px 8px 0 0;">
+                                <img src="/api/photo/thumb?file=@Uri.EscapeDataString(photo.RelativePath)"
+                                     alt="@photo.DisplayName" loading="lazy"
+                                     style="width:100%; height:100%; object-fit:cover;" />
+                            </div>
+                            <div class="card-body p-2">
+                                <h6 class="card-title text-truncate mb-1" style="font-size:0.75rem;" title="@photo.DisplayName">@photo.DisplayName</h6>
+                                <small class="text-secondary" style="font-size:0.7rem;">@photo.FormattedSize &middot; @System.IO.Path.GetExtension(photo.FileName).TrimStart('.').ToUpper()</small>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Model.Audios.Count > 0)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="text-light mb-0"><i class="bi bi-music-note-list me-2"></i>Audio (@Model.Audios.Count)</h5>
+            <a asp-page="/Music" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-info" target="_blank">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open Music Player
+            </a>
+        </div>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-2 mb-4">
+            @foreach (var audio in Model.Audios)
+            {
+                <div class="col">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-audio="@audio.RelativePath" class="text-decoration-none">
+                        <div class="card movie-card h-100 @(Model.PlayingAudio == audio.RelativePath ? "border-primary" : "")">
+                            <div class="d-flex align-items-center p-2">
+                                <i class="bi bi-music-note-beamed text-info me-2" style="font-size:1.5rem;"></i>
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <h6 class="card-title text-truncate mb-0" style="font-size:0.85rem;" title="@audio.DisplayName">@audio.DisplayName</h6>
+                                    <small class="text-secondary">@audio.FormattedSize &middot; @System.IO.Path.GetExtension(audio.FileName).TrimStart('.').ToUpper()</small>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Model.Videos.Count == 0 && Model.Photos.Count == 0 && Model.Audios.Count == 0 && Model.Subfolders.Count == 0)
+    {
+        <div class="empty-state text-center py-5">
+            <div class="display-1 text-secondary mb-3">🎬</div>
+            <h5 class="text-light">No media here</h5>
+            <p class="text-secondary">
+                Click <strong>Change Folder</strong> above to point to a folder with media files.
+            </p>
+            <p class="text-secondary small">
+                Video: mp4, mkv, avi, mov, wmv &middot;
+                Photo: jpg, png, gif, cr2, nef, dng &middot;
+                Audio: mp3, flac, wma, aac, ogg, wav
+            </p>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    let currentBrowsePath = '';
+
+    document.getElementById('folderModal').addEventListener('show.bs.modal', function () {
+        loadDrives();
+    });
+
+    document.getElementById('btnSelectFolder').addEventListener('click', async function () {
+        if (!currentBrowsePath) return;
+        const res = await fetch('/api/settings/media-root', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: currentBrowsePath })
+        });
+        if (res.ok) {
+            window.location.href = '/?folder=';
+        }
+    });
+
+    async function loadDrives() {
+        currentBrowsePath = '';
+        updateBrowseUI();
+        const res = await fetch('/api/browse/drives');
+        const drives = await res.json();
+        const driveHtml = drives.map(d =>
+            `<button class="btn btn-outline-info btn-sm me-2 mb-2" onclick="browseFolder('${escapeJs(d.name)}')">
+                <i class="bi bi-hdd me-1"></i>${d.label} <small class="text-secondary">(${d.freeGB} GB free)</small>
+            </button>`
+        ).join('');
+        document.getElementById('driveList').innerHTML = driveHtml;
+        document.getElementById('folderList').innerHTML = '<p class="text-secondary">Select a drive above</p>';
+    }
+
+    async function browseFolder(path) {
+        currentBrowsePath = path;
+        updateBrowseUI();
+        const res = await fetch(`/api/browse/folder?path=${encodeURIComponent(path)}`);
+        if (!res.ok) { document.getElementById('folderList').innerHTML = '<p class="text-danger">Cannot access this folder</p>'; return; }
+        const entries = await res.json();
+        if (entries.length === 0) {
+            document.getElementById('folderList').innerHTML = '<p class="text-secondary">Empty folder</p>';
+            return;
+        }
+        const html = entries.map(e => {
+            const icon = e.name === '..' ? 'bi-arrow-up-circle' : 'bi-folder-fill';
+            const color = e.name === '..' ? 'text-secondary' : 'text-warning';
+            const badge = e.videoCount > 0 ? `<span class="badge bg-success ms-2">${e.videoCount} vid</span>` : '';
+            const pbadge = e.photoCount > 0 ? `<span class="badge bg-info ms-1">${e.photoCount} img</span>` : '';
+            const abadge = e.audioCount > 0 ? `<span class="badge bg-warning text-dark ms-1">${e.audioCount} audio</span>` : '';
+            return `<div class="browse-entry d-flex align-items-center p-2 rounded mb-1" style="cursor:pointer;" onclick="browseFolder('${escapeJs(e.fullPath)}')">
+                <i class="bi ${icon} ${color} me-2"></i>
+                <span class="text-light flex-grow-1">${escapeHtml(e.name)}</span>${badge}${pbadge}${abadge}
+            </div>`;
+        }).join('');
+        document.getElementById('folderList').innerHTML = html;
+    }
+
+    function updateBrowseUI() {
+        document.getElementById('currentBrowsePath').textContent = currentBrowsePath || '(select a drive)';
+        document.getElementById('btnSelectFolder').disabled = !currentBrowsePath;
+    }
+
+    function escapeJs(s) { return s.replace(/\\/g, '/').replace(/'/g, "\\'"); }
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    @if (Model.NowPlayingUseHls && !string.IsNullOrEmpty(Model.NowPlaying))
+    {
+        <text>
+    (async function() {
+        const file = '@Html.Raw(Model.NowPlaying?.Replace("\\", "\\\\").Replace("'", "\\'"))';
+
+        // 1. Start HLS session (automatically kills any previous one)
+        const startRes = await fetch('/api/hls/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: file })
+        });
+        const startData = await startRes.json();
+        const sid = startData.sessionId;
+        const playlistUrl = '/api/hls/' + encodeURIComponent(sid) + '/stream.m3u8';
+
+        // Stop FFmpeg when leaving the page
+        function stopSession() {
+            navigator.sendBeacon('/api/hls/stop', JSON.stringify({ id: sid }));
+        }
+        window.addEventListener('beforeunload', stopSession);
+        window.addEventListener('pagehide', stopSession);
+
+        // 2. Wait until first segment is ready
+        async function waitReady() {
+            const r = await fetch('/api/hls/status?id=' + encodeURIComponent(sid));
+            const d = await r.json();
+            if (d.error) {
+                document.getElementById('hlsLoading').innerHTML =
+                    '<p class="text-danger small">Error: ' + d.error + '</p>';
+                return;
+            }
+            if (d.ready) {
+                startPlayer();
+                return;
+            }
+            setTimeout(waitReady, 1000);
+        }
+
+        // 3. Start playback — playlist is already a complete VOD, full seek bar works
+        function startPlayer() {
+            const loading = document.getElementById('hlsLoading');
+            if (loading) loading.remove();
+            const wrap = document.getElementById('hlsPlayerWrap');
+            wrap.style.display = 'block';
+            const video = document.getElementById('videoPlayer');
+
+            // Safari (iPhone & Mac) has native HLS support
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = playlistUrl;
+                video.play().catch(() => {});
+            }
+            // Chrome/Firefox: use hls.js
+            else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                const hls = new Hls({
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    fragLoadingMaxRetry: 20,
+                    fragLoadingRetryDelay: 1000,
+                    levelLoadingMaxRetry: 20
+                });
+                hls.loadSource(playlistUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            }
+            else {
+                wrap.innerHTML =
+                    '<p class="text-danger p-3">Browser does not support HLS playback.</p>';
+            }
+        }
+
+        waitReady();
+    })();
+        </text>
+    }
+</script>
+}

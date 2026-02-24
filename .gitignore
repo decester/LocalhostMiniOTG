@@ -1,0 +1,21 @@
+## .NET
+bin/
+obj/
+publish/
+
+## IDE
+.vs/
+*.user
+*.suo
+*.csproj.user
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## App runtime
+media-settings.json
+favorites.json
+ffmpeg.exe
+ffprobe.exe

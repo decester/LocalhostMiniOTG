@@ -1,0 +1,282 @@
+@page
+@model LocalhostMiniOTG.Pages.MusicModel
+@{
+    ViewData["Title"] = "Music Player";
+}
+
+<!-- Now Playing -->
+<div id="nowPlaying" class="mb-3 p-3 rounded" style="background:#1a1a2e; display:none;">
+    <div class="d-flex align-items-center gap-3">
+        <div class="text-center" style="min-width:60px;">
+            <i class="bi bi-disc text-info" style="font-size:2.5rem;" id="discIcon"></i>
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+            <h5 class="text-light mb-1 text-truncate" id="trackTitle">—</h5>
+            <small class="text-secondary" id="trackInfo"></small>
+        </div>
+    </div>
+    <audio id="audioPlayer" controls class="w-100 mt-2" style="height:40px;"></audio>
+    <div class="d-flex justify-content-center gap-2 mt-2">
+        <button class="btn btn-sm btn-outline-light" id="btnPrev" title="Previous"><i class="bi bi-skip-start-fill"></i></button>
+        <button class="btn btn-sm btn-outline-light" id="btnStop" title="Stop"><i class="bi bi-stop-fill"></i></button>
+        <button class="btn btn-sm btn-outline-light" id="btnNext" title="Next"><i class="bi bi-skip-end-fill"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnShuffle" title="Shuffle"><i class="bi bi-shuffle"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnRepeat" title="Repeat"><i class="bi bi-arrow-repeat"></i></button>
+    </div>
+</div>
+
+<!-- Favorites -->
+@if (Model.Favorites.Count > 0)
+{
+    <div class="mb-3">
+        <h6 class="text-secondary mb-2"><i class="bi bi-star-fill text-warning me-1"></i>Favorites</h6>
+        <div class="d-flex flex-wrap gap-1">
+            @foreach (var fav in Model.Favorites)
+            {
+                <a asp-page="/Music" asp-route-folder="@fav.Path" class="btn btn-sm @(Model.CurrentFolder == fav.Path ? "btn-info" : "btn-outline-info")">
+                    <i class="bi bi-folder-fill me-1"></i>@fav.Label
+                </a>
+            }
+        </div>
+    </div>
+}
+
+<!-- Breadcrumb -->
+<nav class="mb-2">
+    <ol class="breadcrumb mb-0" style="--bs-breadcrumb-divider:'›'; font-size:0.85rem;">
+        <li class="breadcrumb-item"><a asp-page="/Music" class="text-info">?? Root</a></li>
+        @if (!string.IsNullOrEmpty(Model.CurrentFolder))
+        {
+            var parts = Model.CurrentFolder.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var partial = string.Join("/", parts.Take(i + 1));
+                if (i == parts.Length - 1)
+                {
+                    <li class="breadcrumb-item active text-light">@parts[i]</li>
+                }
+                else
+                {
+                    <li class="breadcrumb-item"><a asp-page="/Music" asp-route-folder="@partial" class="text-info">@parts[i]</a></li>
+                }
+            }
+        }
+    </ol>
+</nav>
+
+<!-- Favorite toggle for current folder -->
+@if (!string.IsNullOrEmpty(Model.CurrentFolder))
+{
+    var isFav = Model.Favorites.Any(f => f.Path.Equals(Model.CurrentFolder, StringComparison.OrdinalIgnoreCase));
+    <button class="btn btn-sm mb-3 @(isFav ? "btn-warning" : "btn-outline-warning")" id="btnFav"
+            data-path="@Model.CurrentFolder"
+            data-label="@System.IO.Path.GetFileName(Model.CurrentFolder.TrimEnd('/'))">
+        <i class="bi @(isFav ? "bi-star-fill" : "bi-star") me-1"></i>
+        @(isFav ? "Remove Favorite" : "Add to Favorites")
+    </button>
+}
+
+<!-- Subfolders -->
+@if (Model.Subfolders.Count > 0)
+{
+    <div class="mb-3">
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-2">
+            @foreach (var folder in Model.Subfolders)
+            {
+                <div class="col">
+                    <a asp-page="/Music" asp-route-folder="@folder.RelativePath" class="text-decoration-none">
+                        <div class="folder-card p-2 rounded text-center">
+                            <i class="bi bi-folder-fill text-warning" style="font-size:1.5rem;"></i>
+                            <div class="text-truncate text-light small mt-1" title="@folder.Name">@folder.Name</div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Track List -->
+@if (Model.Tracks.Count > 0)
+{
+    <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="text-light mb-0">@Model.Tracks.Count tracks</h6>
+            <button class="btn btn-sm btn-outline-info" id="btnPlayAll"><i class="bi bi-play-fill me-1"></i>Play All</button>
+        </div>
+        <div class="list-group list-group-flush" id="trackList">
+            @for (int i = 0; i < Model.Tracks.Count; i++)
+            {
+                var t = Model.Tracks[i];
+                var ext = System.IO.Path.GetExtension(t.FileName).TrimStart('.').ToUpper();
+                <div class="list-group-item d-flex align-items-center px-2 py-2 border-0 track-item"
+                     data-index="@i" data-file="@t.RelativePath" data-name="@t.DisplayName" data-ext="@ext" data-size="@t.FormattedSize"
+                     style="background:transparent; cursor:pointer; border-bottom:1px solid #2a2a3e !important;">
+                    <span class="track-num text-secondary me-2" style="min-width:28px; font-size:0.8rem;">@(i + 1)</span>
+                    <i class="bi bi-music-note text-info me-2"></i>
+                    <div class="flex-grow-1 overflow-hidden">
+                        <div class="text-light text-truncate" style="font-size:0.9rem;">@t.DisplayName</div>
+                        <small class="text-secondary">@t.FormattedSize · @ext</small>
+                    </div>
+                    <i class="bi bi-play-circle track-play-btn text-secondary" style="font-size:1.2rem;"></i>
+                </div>
+            }
+        </div>
+    </div>
+}
+else if (Model.Subfolders.Count == 0)
+{
+    <div class="text-center py-4">
+        <i class="bi bi-music-note-beamed text-secondary" style="font-size:3rem;"></i>
+        <p class="text-secondary mt-2">No audio files here</p>
+    </div>
+}
+
+<!-- Back to main -->
+<div class="text-center mt-3 mb-4">
+    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Media
+    </a>
+</div>
+
+@section Scripts {
+<script>
+    const audio = document.getElementById('audioPlayer');
+    const nowPlaying = document.getElementById('nowPlaying');
+    const trackItems = document.querySelectorAll('.track-item');
+    let currentIndex = -1;
+    let shuffle = false;
+    let repeat = false;
+    let playlist = [];
+
+    // Build playlist from DOM
+    trackItems.forEach((el, i) => {
+        playlist.push({
+            index: i,
+            file: el.dataset.file,
+            name: el.dataset.name,
+            ext: el.dataset.ext,
+            size: el.dataset.size
+        });
+        el.addEventListener('click', () => playTrack(i));
+    });
+
+    function playTrack(idx) {
+        if (idx < 0 || idx >= playlist.length) return;
+        currentIndex = idx;
+        const t = playlist[idx];
+        audio.src = '/api/stream?file=' + encodeURIComponent(t.file);
+        audio.play().catch(() => {});
+        document.getElementById('trackTitle').textContent = t.name;
+        document.getElementById('trackInfo').textContent = t.ext + ' · ' + t.size;
+        nowPlaying.style.display = 'block';
+
+        // Highlight active track
+        trackItems.forEach(el => el.style.background = 'transparent');
+        trackItems[idx].style.background = 'rgba(13,202,240,0.1)';
+
+        // Media Session API — lock screen controls on iPhone
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: t.name,
+                artist: 'LocalhostMiniOTG',
+                album: '@(Model.CurrentFolder ?? "Music")'
+            });
+            navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
+            navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+        }
+    }
+
+    function nextTrack() {
+        if (playlist.length === 0) return;
+        if (shuffle) {
+            playTrack(Math.floor(Math.random() * playlist.length));
+        } else if (currentIndex < playlist.length - 1) {
+            playTrack(currentIndex + 1);
+        } else if (repeat) {
+            playTrack(0);
+        }
+    }
+
+    function prevTrack() {
+        if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+        if (currentIndex > 0) playTrack(currentIndex - 1);
+    }
+
+    // Auto-play next track
+    audio.addEventListener('ended', nextTrack);
+
+    // Controls
+    document.getElementById('btnNext').addEventListener('click', nextTrack);
+    document.getElementById('btnPrev').addEventListener('click', prevTrack);
+    document.getElementById('btnStop').addEventListener('click', () => {
+        audio.pause();
+        audio.currentTime = 0;
+    });
+
+    document.getElementById('btnShuffle').addEventListener('click', function() {
+        shuffle = !shuffle;
+        this.classList.toggle('btn-outline-secondary', !shuffle);
+        this.classList.toggle('btn-info', shuffle);
+    });
+
+    document.getElementById('btnRepeat').addEventListener('click', function() {
+        repeat = !repeat;
+        this.classList.toggle('btn-outline-secondary', !repeat);
+        this.classList.toggle('btn-info', repeat);
+    });
+
+    // Play All
+    const btnPlayAll = document.getElementById('btnPlayAll');
+    if (btnPlayAll) btnPlayAll.addEventListener('click', () => playTrack(0));
+
+    // Auto-start if track index is specified
+    const startIdx = @Model.StartIndex;
+    if (startIdx >= 0 && startIdx < playlist.length) {
+        playTrack(startIdx);
+    }
+
+    // Spinning disc animation
+    let spinning = false;
+    audio.addEventListener('play', () => {
+        const disc = document.getElementById('discIcon');
+        if (!spinning) {
+            disc.style.animation = 'spin 2s linear infinite';
+            spinning = true;
+        }
+    });
+    audio.addEventListener('pause', () => {
+        document.getElementById('discIcon').style.animationPlayState = 'paused';
+    });
+    audio.addEventListener('playing', () => {
+        document.getElementById('discIcon').style.animationPlayState = 'running';
+    });
+
+    // Favorite button
+    const btnFav = document.getElementById('btnFav');
+    if (btnFav) {
+        btnFav.addEventListener('click', async function() {
+            const path = this.dataset.path;
+            const isFav = this.classList.contains('btn-warning');
+            if (isFav) {
+                await fetch('/api/favorites?path=' + encodeURIComponent(path), { method: 'DELETE' });
+            } else {
+                await fetch('/api/favorites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: path, label: this.dataset.label })
+                });
+            }
+            location.reload();
+        });
+    }
+</script>
+<style>
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .track-item:hover { background: rgba(13,202,240,0.05) !important; }
+    .track-item:hover .track-play-btn { color: #0dcaf0 !important; }
+</style>
+}
