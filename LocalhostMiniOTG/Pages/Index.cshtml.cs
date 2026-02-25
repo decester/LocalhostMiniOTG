@@ -33,6 +33,9 @@ namespace LocalhostMiniOTG.Pages
         public string? ViewingPhotoName { get; set; }
         public int ViewingPhotoIndex { get; set; }
 
+        // Combined media (photos + videos) for slideshow
+        public List<MediaItem> AllMedia { get; set; } = [];
+
         // Audio player
         public string? PlayingAudio { get; set; }
         public string? PlayingAudioName { get; set; }
@@ -47,6 +50,13 @@ namespace LocalhostMiniOTG.Pages
             Audios = _library.GetAudios(folder);
             FfmpegAvailable = HlsStreamManager.IsFfmpegAvailable();
 
+            // Build combined media list for slideshow
+            foreach (var v in Videos)
+                AllMedia.Add(new MediaItem { Type = "video", RelativePath = v.RelativePath, DisplayName = v.DisplayName, FileName = v.FileName, FormattedSize = v.FormattedSize });
+            foreach (var p in Photos)
+                AllMedia.Add(new MediaItem { Type = "photo", RelativePath = p.RelativePath, DisplayName = p.DisplayName, FileName = p.FileName, FormattedSize = p.FormattedSize });
+            AllMedia.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));
+
             // Video
             if (!string.IsNullOrEmpty(play))
             {
@@ -58,9 +68,7 @@ namespace LocalhostMiniOTG.Pages
                     NowPlayingUseHls = HlsStreamManager.NeedsHlsStream(fullPath) && FfmpegAvailable;
                     NowPlayingType = System.IO.Path.GetExtension(play).ToLowerInvariant() switch
                     {
-                        ".mp4" => "video/mp4",
-                        ".mov" => "video/quicktime",
-                        ".m4v" => "video/x-m4v",
+                        ".mp4" or ".mov" or ".m4v" => "video/mp4",
                         _ => "video/mp4"
                     };
                 }
@@ -99,5 +107,14 @@ namespace LocalhostMiniOTG.Pages
                 }
             }
         }
+    }
+
+    public class MediaItem
+    {
+        public string Type { get; set; } = "";
+        public string RelativePath { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string FormattedSize { get; set; } = "";
     }
 }

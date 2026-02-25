@@ -12,14 +12,11 @@ html {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
-html {
-  position: relative;
-  min-height: 100%;
-}
-
 body {
-  margin-bottom: 60px;
   background-color: #0f0f1a;
+  /* No fixed footer trick — breaks Smart TV scrolling */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -101,6 +98,105 @@ body {
 /* Browse Modal Entries */
 .browse-entry:hover {
   background: rgba(255,255,255,0.06);
+}
+
+/* Smart TV / D-pad focus styles */
+a:focus, button:focus, .card:focus-within, .folder-card:focus-within {
+  outline: 3px solid #0dcaf0 !important;
+  outline-offset: 2px;
+}
+
+/* Ensure all scrollable containers work on TV browsers */
+.modal-body, .list-group, [style*="overflow"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Slideshow overlay */
+#slideshowOverlay img,
+#slideshowOverlay video {
+  animation: ssFadeIn 0.4s ease;
+}
+
+@keyframes ssFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Slideshow left/right nav zones */
+.ss-nav-zone {
+  position: absolute;
+  top: 0;
+  width: 25%;
+  height: calc(100% - 60px);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  z-index: 10;
+  font-size: 3rem;
+  color: rgba(255,255,255,0);
+  transition: color 0.2s, background 0.2s;
+}
+
+.ss-nav-zone:hover {
+  color: rgba(255,255,255,0.8);
+  background: linear-gradient(to right, rgba(0,0,0,0.3), transparent);
+}
+
+.ss-nav-left {
+  left: 0;
+  padding-left: 20px;
+  justify-content: flex-start;
+}
+
+.ss-nav-right {
+  right: 0;
+  padding-right: 20px;
+  justify-content: flex-end;
+}
+
+.ss-nav-right:hover {
+  background: linear-gradient(to left, rgba(0,0,0,0.3), transparent);
+}
+
+/* Photo viewer left/right nav zones */
+.photo-nav-zone {
+  position: absolute;
+  top: 0;
+  width: 35%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  font-size: 2.5rem;
+  color: rgba(255,255,255,0);
+  transition: color 0.2s, background 0.2s;
+  z-index: 2;
+}
+
+.photo-nav-zone:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+.photo-nav-left {
+  left: 0;
+  padding-left: 16px;
+  justify-content: flex-start;
+  border-radius: 8px 0 0 8px;
+}
+
+.photo-nav-left:hover {
+  background: linear-gradient(to right, rgba(0,0,0,0.3), transparent);
+}
+
+.photo-nav-right {
+  right: 0;
+  padding-right: 16px;
+  justify-content: flex-end;
+  border-radius: 0 8px 8px 0;
+}
+
+.photo-nav-right:hover {
+  background: linear-gradient(to left, rgba(0,0,0,0.3), transparent);
 }
 
 /* Settings Bar */

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1a1a2e"/>
+  <circle cx="256" cy="280" r="120" fill="none" stroke="#0dcaf0" stroke-width="12"/>
+  <circle cx="256" cy="280" r="40" fill="#0dcaf0"/>
+  <circle cx="256" cy="280" r="12" fill="#1a1a2e"/>
+  <rect x="370" y="120" width="12" height="170" rx="6" fill="#0dcaf0"/>
+  <path d="M370 120 Q370 90 400 90 L420 90 Q440 90 440 110 L440 140 Q440 160 420 160 L382 160" fill="#0dcaf0"/>
+  <text x="256" y="460" text-anchor="middle" fill="#6c757d" font-family="system-ui" font-size="40" font-weight="bold">MiniOTG</text>
+</svg>

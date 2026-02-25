@@ -6,17 +6,17 @@
 
 <!-- Folder Picker Modal -->
 <div class="modal fade" id="folderModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background:#1a1a2e;">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title text-light"><i class="bi bi-folder2-open me-2"></i>Choose Media Folder</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="currentBrowsePath" class="text-info small mb-2 text-break" style="font-family:monospace;"></div>
-                <div id="driveList" class="mb-3"></div>
-                <div id="folderList" style="max-height:50vh;overflow-y:auto;"></div>
-            </div>
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="background:#1a1a2e; max-height:90vh;">
+        <div class="modal-header border-secondary">
+            <h5 class="modal-title text-light"><i class="bi bi-folder2-open me-2"></i>Choose Media Folder</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto; -webkit-overflow-scrolling:touch;">
+            <div id="currentBrowsePath" class="text-info small mb-2 text-break" style="font-family:monospace;"></div>
+            <div id="driveList" class="mb-3"></div>
+            <div id="folderList"></div>
+        </div>
             <div class="modal-footer border-secondary">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" id="btnSelectFolder" disabled>
@@ -44,7 +44,26 @@
             <h4 class="text-light mb-0">
                 <i class="bi bi-play-circle-fill me-2"></i>@Model.NowPlayingName
             </h4>
-            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+            <div class="d-flex align-items-center gap-2">
+                @if (Model.NowPlayingUseHls)
+                {
+                    <div class="btn-group btn-group-sm" role="group" id="qualityBtns">
+                        <button class="btn btn-outline-secondary" data-q="low" title="480p ~1 Mbps - slow WiFi">
+                            <i class="bi bi-wifi-1 me-1"></i>Low
+                        </button>
+                        <button class="btn btn-outline-secondary" data-q="medium" title="720p ~2.5 Mbps">
+                            <i class="bi bi-wifi-2 me-1"></i>Med
+                        </button>
+                        <button class="btn btn-outline-secondary" data-q="high" title="Original quality">
+                            <i class="bi bi-wifi me-1"></i>High
+                        </button>
+                    </div>
+                }
+                <a href="/api/download?file=@Uri.EscapeDataString(Model.NowPlaying)" class="btn btn-sm btn-outline-info" title="Download original file">
+                    <i class="bi bi-download"></i>
+                </a>
+                <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+            </div>
         </div>
 
         @if (Model.NowPlayingUseHls)
@@ -87,10 +106,13 @@
                 {
                     <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@Model.Photos[Model.ViewingPhotoIndex + 1].RelativePath" class="btn btn-sm btn-outline-light me-1"><i class="bi bi-chevron-right"></i></a>
                 }
+                <a href="/api/download?file=@Uri.EscapeDataString(Model.ViewingPhoto!)" class="btn btn-sm btn-outline-info" title="Download original file">
+                    <i class="bi bi-download"></i>
+                </a>
                 <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
             </div>
         </div>
-        <div class="text-center rounded" style="background:#000; padding:8px;">
+        <div class="text-center rounded" style="background:#000; padding:8px; position:relative; cursor:pointer;" id="photoViewerArea">
             @{
                 var photoExt = System.IO.Path.GetExtension(Model.ViewingPhoto!).ToLowerInvariant();
                 var isRaw = photoExt is ".cr2" or ".nef" or ".arw" or ".dng";
@@ -100,6 +122,21 @@
             }
             <img src="@photoSrc" alt="@Model.ViewingPhotoName"
                  style="max-width:100%; max-height:75vh; object-fit:contain; border-radius:4px;" />
+            <!-- Left/Right click zones -->
+            @if (Model.ViewingPhotoIndex > 0)
+            {
+                <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@Model.Photos[Model.ViewingPhotoIndex - 1].RelativePath"
+                   class="photo-nav-zone photo-nav-left" title="Previous">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            }
+            @if (Model.ViewingPhotoIndex >= 0 && Model.ViewingPhotoIndex < Model.Photos.Count - 1)
+            {
+                <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@Model.Photos[Model.ViewingPhotoIndex + 1].RelativePath"
+                   class="photo-nav-zone photo-nav-right" title="Next">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            }
         </div>
         @if (Model.Photos.Count > 1)
         {
@@ -116,7 +153,12 @@
             <h4 class="text-light mb-0">
                 <i class="bi bi-music-note-beamed me-2"></i>@Model.PlayingAudioName
             </h4>
-            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="/api/download?file=@Uri.EscapeDataString(Model.PlayingAudio)" class="btn btn-sm btn-outline-info" title="Download original file">
+                    <i class="bi bi-download"></i>
+                </a>
+                <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" class="btn btn-sm btn-outline-light">&times; Close</a>
+            </div>
         </div>
         <div class="p-3 rounded" style="background:#1a1a2e;">
             <audio id="audioPlayer" controls autoplay style="width:100%;">
@@ -160,7 +202,7 @@
             @foreach (var folder in Model.Subfolders)
             {
                 <div class="col">
-                    <a asp-page="/Index" asp-route-folder="@folder.RelativePath" class="text-decoration-none">
+                    <a asp-page="/Index" asp-route-folder="@folder.RelativePath" class="text-decoration-none" tabindex="0">
                         <div class="folder-card p-2 rounded text-center">
                             <i class="bi bi-folder-fill text-warning" style="font-size:2rem;"></i>
                             <div class="text-truncate text-light small mt-1" title="@folder.Name">@folder.Name</div>
@@ -174,6 +216,29 @@
 
 <!-- Video Library -->
 <div class="library-section">
+    @if (Model.Videos.Count > 0 || Model.Photos.Count > 0)
+    {
+        <!-- View toggle + Slideshow buttons -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-outline-light active" id="btnViewSeparate" title="Separate lists">
+                    <i class="bi bi-list-ul me-1"></i>Separate
+                </button>
+                <button class="btn btn-outline-light" id="btnViewCombined" title="Combined photo + video grid">
+                    <i class="bi bi-grid-3x3-gap me-1"></i>Combined
+                </button>
+            </div>
+            @if (Model.AllMedia.Count > 1)
+            {
+                <button class="btn btn-sm btn-outline-info" id="btnSlideshow">
+                    <i class="bi bi-play-circle me-1"></i>Slideshow
+                </button>
+            }
+        </div>
+    }
+
+    <!-- === SEPARATE VIEW (default) === -->
+    <div id="viewSeparate">
     @if (Model.Videos.Count > 0)
     {
         <h5 class="text-light mb-3"><i class="bi bi-collection-play me-2"></i>Videos (@Model.Videos.Count)</h5>
@@ -181,7 +246,7 @@
             @foreach (var video in Model.Videos)
             {
                 <div class="col">
-                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-play="@video.RelativePath" class="text-decoration-none">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-play="@video.RelativePath" class="text-decoration-none" tabindex="0">
                         <div class="card movie-card h-100 @(Model.NowPlaying == video.RelativePath ? "border-primary" : "")">
                             <div class="card-thumb d-flex align-items-center justify-content-center">
                                 <span class="play-icon">&#9654;</span>
@@ -204,7 +269,7 @@
             @foreach (var photo in Model.Photos)
             {
                 <div class="col">
-                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@photo.RelativePath" class="text-decoration-none">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@photo.RelativePath" class="text-decoration-none" tabindex="0">
                         <div class="card movie-card h-100 @(Model.ViewingPhoto == photo.RelativePath ? "border-primary" : "")">
                             <div style="height:100px; overflow:hidden; background:#16213e; border-radius:8px 8px 0 0;">
                                 <img src="/api/photo/thumb?file=@Uri.EscapeDataString(photo.RelativePath)"
@@ -234,7 +299,7 @@
             @foreach (var audio in Model.Audios)
             {
                 <div class="col">
-                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-audio="@audio.RelativePath" class="text-decoration-none">
+                    <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-audio="@audio.RelativePath" class="text-decoration-none" tabindex="0">
                         <div class="card movie-card h-100 @(Model.PlayingAudio == audio.RelativePath ? "border-primary" : "")">
                             <div class="d-flex align-items-center p-2">
                                 <i class="bi bi-music-note-beamed text-info me-2" style="font-size:1.5rem;"></i>
@@ -249,6 +314,89 @@
             }
         </div>
     }
+    </div><!-- end viewSeparate -->
+
+    <!-- === COMBINED VIEW (photos + videos mixed) === -->
+    <div id="viewCombined" style="display:none;">
+        @if (Model.AllMedia.Count > 0)
+        {
+            <h5 class="text-light mb-3"><i class="bi bi-grid-3x3-gap me-2"></i>All Media (@Model.AllMedia.Count)</h5>
+            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-2 mb-4">
+                @for (int i = 0; i < Model.AllMedia.Count; i++)
+                {
+                    var m = Model.AllMedia[i];
+                    var ext = System.IO.Path.GetExtension(m.FileName).TrimStart('.').ToUpper();
+                    if (m.Type == "photo")
+                    {
+                        <div class="col">
+                            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-photo="@m.RelativePath" class="text-decoration-none" tabindex="0">
+                                <div class="card movie-card h-100">
+                                    <div style="height:100px; overflow:hidden; background:#16213e; border-radius:8px 8px 0 0; position:relative;">
+                                        <img src="/api/photo/thumb?file=@Uri.EscapeDataString(m.RelativePath)"
+                                             alt="@m.DisplayName" loading="lazy"
+                                             style="width:100%; height:100%; object-fit:cover;" />
+                                        <span class="badge bg-success" style="position:absolute; top:4px; right:4px; font-size:0.6rem;">PHOTO</span>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title text-truncate mb-0" style="font-size:0.75rem;" title="@m.DisplayName">@m.DisplayName</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="col">
+                            <a asp-page="/Index" asp-route-folder="@Model.CurrentFolder" asp-route-play="@m.RelativePath" class="text-decoration-none" tabindex="0">
+                                <div class="card movie-card h-100">
+                                    <div class="d-flex align-items-center justify-content-center" style="height:100px; background:linear-gradient(135deg,#16213e,#0f3460); border-radius:8px 8px 0 0; position:relative;">
+                                        <span style="font-size:2rem; color:rgba(255,255,255,0.3);">&#9654;</span>
+                                        <span class="badge bg-primary" style="position:absolute; top:4px; right:4px; font-size:0.6rem;">VIDEO</span>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title text-truncate mb-0" style="font-size:0.75rem;" title="@m.DisplayName">@m.DisplayName</h6>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div><!-- end viewCombined -->
+
+    <!-- === SLIDESHOW OVERLAY === -->
+    <div id="slideshowOverlay" style="display:none; position:fixed; inset:0; z-index:9999; background:#000;">
+        <div id="slideshowContent" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+            <img id="ssImage" style="max-width:100%; max-height:100%; object-fit:contain; display:none;" />
+            <video id="ssVideo" controls autoplay playsinline webkit-playsinline style="max-width:100%; max-height:100%; display:none;"></video>
+        </div>
+        <!-- Left/Right click zones for prev/next -->
+        <div id="ssNavLeft" class="ss-nav-zone ss-nav-left"><i class="bi bi-chevron-left"></i></div>
+        <div id="ssNavRight" class="ss-nav-zone ss-nav-right"><i class="bi bi-chevron-right"></i></div>
+        <!-- Slideshow controls -->
+        <div style="position:absolute; bottom:0; left:0; right:0; padding:12px; background:linear-gradient(transparent, rgba(0,0,0,0.8)); display:flex; align-items:center; justify-content:center; gap:8px;">
+            <button class="btn btn-sm btn-outline-light" id="ssPrev"><i class="bi bi-skip-start-fill"></i></button>
+            <button class="btn btn-sm btn-outline-light" id="ssPlayPause"><i class="bi bi-pause-fill" id="ssPlayIcon"></i></button>
+            <button class="btn btn-sm btn-outline-light" id="ssNext"><i class="bi bi-skip-end-fill"></i></button>
+            <span class="text-light small ms-2" id="ssCounter">1 / 1</span>
+            <span class="text-secondary small ms-2 text-truncate" id="ssTitle" style="max-width:40%;"></span>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" id="ssSpeed" style="width:auto; background:#222; color:#fff; border-color:#555;">
+                    <option value="3">3s</option>
+                    <option value="5" selected>5s</option>
+                    <option value="8">8s</option>
+                    <option value="15">15s</option>
+                </select>
+                <a class="btn btn-sm btn-outline-info" id="ssDownload" href="#" title="Download"><i class="bi bi-download"></i></a>
+                <button class="btn btn-sm btn-outline-danger" id="ssClose"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <!-- Progress bar -->
+        <div style="position:absolute; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,0.1);">
+            <div id="ssProgress" style="height:100%; background:#0dcaf0; width:0%; transition:width 0.3s linear;"></div>
+        </div>
+    </div>
 
     @if (Model.Videos.Count == 0 && Model.Photos.Count == 0 && Model.Audios.Count == 0 && Model.Subfolders.Count == 0)
     {
@@ -338,73 +486,302 @@
         <text>
     (async function() {
         const file = '@Html.Raw(Model.NowPlaying?.Replace("\\", "\\\\").Replace("'", "\\'"))';
+        let currentQuality = 'auto';
+        let sid = null;
+        let playlistUrl = null;
+        let hlsInstance = null;
+        let sessionVersion = 0; // incremented on each switch to cancel stale polls
+        let switching = false;  // debounce rapid clicks
 
-        // 1. Start HLS session (automatically kills any previous one)
-        const startRes = await fetch('/api/hls/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file: file })
-        });
-        const startData = await startRes.json();
-        const sid = startData.sessionId;
-        const playlistUrl = '/api/hls/' + encodeURIComponent(sid) + '/stream.m3u8';
-
-        // Stop FFmpeg when leaving the page
-        function stopSession() {
-            navigator.sendBeacon('/api/hls/stop', JSON.stringify({ id: sid }));
-        }
-        window.addEventListener('beforeunload', stopSession);
-        window.addEventListener('pagehide', stopSession);
-
-        // 2. Wait until first segment is ready
-        async function waitReady() {
-            const r = await fetch('/api/hls/status?id=' + encodeURIComponent(sid));
-            const d = await r.json();
-            if (d.error) {
-                document.getElementById('hlsLoading').innerHTML =
-                    '<p class="text-danger small">Error: ' + d.error + '</p>';
-                return;
+        // --- Auto-detect bandwidth by downloading 100KB test payload ---
+        async function detectSpeed() {
+            try {
+                const url = '/api/speedtest?_t=' + Date.now();
+                const t0 = performance.now();
+                const r = await fetch(url);
+                const buf = await r.arrayBuffer();
+                const ms = performance.now() - t0;
+                const seconds = ms / 1000;
+                const bits = buf.byteLength * 8;
+                const mbps = bits / seconds / 1_000_000;
+                console.log('[AutoQuality] ' + (buf.byteLength/1024).toFixed(0) + ' KB in ' + ms.toFixed(0) + 'ms = ' + mbps.toFixed(1) + ' Mbps');
+                // 100KB test: Low needs ~0.6 Mbps, Med needs ~1.7 Mbps
+                if (2 >= mbps) return 'low';
+                if (8 >= mbps) return 'medium';
+                return 'high';
+            } catch {
+                return 'medium';
             }
-            if (d.ready) {
-                startPlayer();
-                return;
-            }
-            setTimeout(waitReady, 1000);
         }
 
-        // 3. Start playback — playlist is already a complete VOD, full seek bar works
-        function startPlayer() {
+        // --- Start HLS session with given quality ---
+        async function startSession(quality) {
+            if (switching) return;
+            switching = true;
+
+            currentQuality = quality;
+            sessionVersion++;
+            const myVersion = sessionVersion;
+            highlightQualityBtn(quality);
+
+            // Destroy old player immediately
+            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+            const videoEl = document.getElementById('videoPlayer');
+            if (videoEl) { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load(); }
+
+            // Show loading
             const loading = document.getElementById('hlsLoading');
-            if (loading) loading.remove();
             const wrap = document.getElementById('hlsPlayerWrap');
-            wrap.style.display = 'block';
+            if (loading) {
+                loading.style.display = 'flex';
+                loading.innerHTML =
+                    '<div class="spinner-border text-info mb-3" role="status"></div>' +
+                    '<p class="text-light small mb-0">Preparing stream (' + quality + ')...</p>';
+            }
+            if (wrap) wrap.style.display = 'none';
+
+            try {
+                const startRes = await fetch('/api/hls/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file: file, quality: quality })
+                });
+                if (myVersion !== sessionVersion) { switching = false; return; } // stale
+
+                const startData = await startRes.json();
+                sid = startData.sessionId;
+                playlistUrl = '/api/hls/' + encodeURIComponent(sid) + '/stream.m3u8';
+
+                pollReady(myVersion);
+            } catch (e) {
+                if (loading) loading.innerHTML = '<p class="text-danger small">Failed to start stream</p>';
+            }
+            switching = false;
+        }
+
+        // --- Poll until first segment is ready ---
+        async function pollReady(myVersion) {
+            if (myVersion !== sessionVersion) return; // cancelled
+            try {
+                const r = await fetch('/api/hls/status?id=' + encodeURIComponent(sid));
+                if (myVersion !== sessionVersion) return;
+                const d = await r.json();
+                if (d.error) {
+                    const loading = document.getElementById('hlsLoading');
+                    if (loading) loading.innerHTML = '<p class="text-danger small">Error: ' + d.error + '</p>';
+                    return;
+                }
+                if (d.ready) {
+                    startPlayer(myVersion);
+                    return;
+                }
+            } catch { }
+            if (myVersion === sessionVersion) setTimeout(() => pollReady(myVersion), 1000);
+        }
+
+        // --- Start/restart the video player ---
+        function startPlayer(myVersion) {
+            if (myVersion !== sessionVersion) return;
+
+            const loading = document.getElementById('hlsLoading');
+            if (loading) loading.style.display = 'none';
+            const wrap = document.getElementById('hlsPlayerWrap');
+            if (wrap) wrap.style.display = 'block';
             const video = document.getElementById('videoPlayer');
 
-            // Safari (iPhone & Mac) has native HLS support
             if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = playlistUrl;
+                video.src = playlistUrl + '?_t=' + Date.now();
                 video.play().catch(() => {});
             }
-            // Chrome/Firefox: use hls.js
             else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                const hls = new Hls({
+                hlsInstance = new Hls({
                     maxBufferLength: 30,
                     maxMaxBufferLength: 60,
                     fragLoadingMaxRetry: 20,
                     fragLoadingRetryDelay: 1000,
                     levelLoadingMaxRetry: 20
                 });
-                hls.loadSource(playlistUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+                hlsInstance.loadSource(playlistUrl + '?_t=' + Date.now());
+                hlsInstance.attachMedia(video);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
             }
             else {
-                wrap.innerHTML =
-                    '<p class="text-danger p-3">Browser does not support HLS playback.</p>';
+                if (wrap) wrap.innerHTML = '<p class="text-danger p-3">Browser does not support HLS playback.</p>';
             }
         }
 
-        waitReady();
+        // --- Quality button highlight ---
+        function highlightQualityBtn(q) {
+            const btns = document.querySelectorAll('#qualityBtns button');
+            const colors = { low: 'btn-warning', medium: 'btn-info', high: 'btn-success' };
+            btns.forEach(b => {
+                const bq = b.dataset.q;
+                b.className = 'btn ' + (bq === q ? colors[bq] : 'btn-outline-secondary');
+            });
+        }
+
+        // --- Quality button click handlers ---
+        document.querySelectorAll('#qualityBtns button').forEach(btn => {
+            btn.addEventListener('click', () => startSession(btn.dataset.q));
+        });
+
+        // --- Stop on page leave ---
+        function stopSession() {
+            if (sid) navigator.sendBeacon('/api/hls/stop', JSON.stringify({ id: sid }));
+        }
+        window.addEventListener('beforeunload', stopSession);
+        window.addEventListener('pagehide', stopSession);
+
+        // --- Auto-detect and start ---
+        const detected = await detectSpeed();
+        startSession(detected);
+    })();
+        </text>
+    }
+
+    // === VIEW TOGGLE: Separate / Combined ===
+    const btnSep = document.getElementById('btnViewSeparate');
+    const btnComb = document.getElementById('btnViewCombined');
+    const viewSep = document.getElementById('viewSeparate');
+    const viewComb = document.getElementById('viewCombined');
+    if (btnSep && btnComb) {
+        btnSep.addEventListener('click', () => {
+            viewSep.style.display = ''; viewComb.style.display = 'none';
+            btnSep.classList.add('active'); btnComb.classList.remove('active');
+        });
+        btnComb.addEventListener('click', () => {
+            viewSep.style.display = 'none'; viewComb.style.display = '';
+            btnComb.classList.add('active'); btnSep.classList.remove('active');
+        });
+    }
+
+    // === SLIDESHOW ===
+    @if (Model.AllMedia.Count > 1)
+    {
+        <text>
+    (function() {
+        const allMedia = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AllMedia.Select(m => new {
+            type = m.Type,
+            path = m.RelativePath,
+            name = m.DisplayName,
+            file = m.FileName
+        })));
+
+        const overlay = document.getElementById('slideshowOverlay');
+        const ssImage = document.getElementById('ssImage');
+        const ssVideo = document.getElementById('ssVideo');
+        const ssCounter = document.getElementById('ssCounter');
+        const ssTitle = document.getElementById('ssTitle');
+        const ssProgress = document.getElementById('ssProgress');
+        const ssDownload = document.getElementById('ssDownload');
+        const ssSpeed = document.getElementById('ssSpeed');
+        const ssPlayIcon = document.getElementById('ssPlayIcon');
+
+        let ssIdx = 0;
+        let ssTimer = null;
+        let ssPlaying = true;
+        let ssProgressTimer = null;
+
+        function getInterval() { return parseInt(ssSpeed.value) * 1000; }
+
+        function showSlide(idx) {
+            ssIdx = ((idx % allMedia.length) + allMedia.length) % allMedia.length;
+            const m = allMedia[ssIdx];
+            const isPhoto = m.type === 'photo';
+            const ext = m.file.split('.').pop().toLowerCase();
+            const isRaw = ['cr2','nef','arw','dng'].includes(ext);
+
+            ssImage.style.display = 'none';
+            ssVideo.style.display = 'none';
+            ssVideo.pause();
+            ssVideo.removeAttribute('src');
+
+            if (isPhoto) {
+                const src = isRaw
+                    ? '/api/photo?file=' + encodeURIComponent(m.path)
+                    : '/api/stream?file=' + encodeURIComponent(m.path);
+                ssImage.src = src;
+                ssImage.style.display = '';
+            } else {
+                ssVideo.src = '/api/stream?file=' + encodeURIComponent(m.path);
+                ssVideo.style.display = '';
+                ssVideo.play().catch(() => {});
+            }
+
+            ssCounter.textContent = (ssIdx + 1) + ' / ' + allMedia.length;
+            ssTitle.textContent = m.name;
+            ssDownload.href = '/api/download?file=' + encodeURIComponent(m.path);
+
+            // Auto-advance
+            clearTimeout(ssTimer);
+            cancelAnimationFrame(ssProgressTimer);
+            ssProgress.style.width = '0%';
+
+            if (ssPlaying) {
+                if (isPhoto) {
+                    startAutoAdvance();
+                } else {
+                    // For video: advance when it ends
+                    ssVideo.onended = () => showSlide(ssIdx + 1);
+                }
+            }
+        }
+
+        function startAutoAdvance() {
+            const dur = getInterval();
+            const start = performance.now();
+            ssProgress.style.transition = 'none';
+            ssProgress.style.width = '0%';
+
+            function tick() {
+                const elapsed = performance.now() - start;
+                const pct = Math.min(100, (elapsed / dur) * 100);
+                ssProgress.style.width = pct + '%';
+                if (elapsed >= dur) {
+                    showSlide(ssIdx + 1);
+                } else {
+                    ssProgressTimer = requestAnimationFrame(tick);
+                }
+            }
+            ssProgressTimer = requestAnimationFrame(tick);
+        }
+
+        // Controls
+        document.getElementById('ssPrev').addEventListener('click', () => showSlide(ssIdx - 1));
+        document.getElementById('ssNext').addEventListener('click', () => showSlide(ssIdx + 1));
+        document.getElementById('ssNavLeft').addEventListener('click', () => showSlide(ssIdx - 1));
+        document.getElementById('ssNavRight').addEventListener('click', () => showSlide(ssIdx + 1));
+        document.getElementById('ssPlayPause').addEventListener('click', () => {
+            ssPlaying = !ssPlaying;
+            ssPlayIcon.className = ssPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+            if (ssPlaying) showSlide(ssIdx); // restart timer
+            else { clearTimeout(ssTimer); cancelAnimationFrame(ssProgressTimer); }
+        });
+        document.getElementById('ssClose').addEventListener('click', () => {
+            overlay.style.display = 'none';
+            ssVideo.pause(); ssVideo.removeAttribute('src');
+            clearTimeout(ssTimer); cancelAnimationFrame(ssProgressTimer);
+            document.body.style.overflow = '';
+        });
+        ssSpeed.addEventListener('change', () => { if (ssPlaying) showSlide(ssIdx); });
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (overlay.style.display === 'none') return;
+            if (e.key === 'Escape') document.getElementById('ssClose').click();
+            if (e.key === 'ArrowRight') showSlide(ssIdx + 1);
+            if (e.key === 'ArrowLeft') showSlide(ssIdx - 1);
+            if (e.key === ' ') { e.preventDefault(); document.getElementById('ssPlayPause').click(); }
+        });
+
+        // Start slideshow
+        document.getElementById('btnSlideshow').addEventListener('click', () => {
+            ssIdx = 0; ssPlaying = true;
+            ssPlayIcon.className = 'bi bi-pause-fill';
+            overlay.style.display = '';
+            document.body.style.overflow = 'hidden';
+            showSlide(0);
+        });
     })();
         </text>
     }

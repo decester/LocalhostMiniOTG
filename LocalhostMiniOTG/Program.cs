@@ -71,18 +71,43 @@ app.MapDelete("/api/favorites", (string path, MediaLibraryService lib) =>
     return Results.Ok(lib.GetFavorites());
 });
 
+// --- API: Speed test (returns ~100KB for bandwidth measurement) ---
+var _speedTestPayload = new byte[102400]; // 100 KB of zeros
+app.MapGet("/api/speedtest", (HttpContext context) =>
+{
+    context.Response.ContentType = "application/octet-stream";
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.ContentLength = _speedTestPayload.Length;
+    return context.Response.Body.WriteAsync(_speedTestPayload);
+});
+
+// --- API: Download file (forces save-as dialog) ---
+app.MapGet("/api/download", (string file, MediaLibraryService lib) =>
+{
+    var fullPath = lib.ResolveFullPath(file);
+    if (fullPath == null) return Results.NotFound();
+    var fileName = Path.GetFileName(fullPath);
+    return Results.File(fullPath, "application/octet-stream", fileName);
+});
+
 // --- API: Stream any media file (with range support for all devices) ---
 app.MapGet("/api/stream", async (string file, HttpContext context, MediaLibraryService lib) =>
 {
     var fullPath = lib.ResolveFullPath(file);
     if (fullPath == null) { context.Response.StatusCode = 404; return; }
 
-    var contentType = Path.GetExtension(fullPath).ToLowerInvariant() switch
+    // RAW photos must go through /api/photo for conversion — never serve binary directly
+    var rawExt = Path.GetExtension(fullPath).ToLowerInvariant();
+    if (rawExt is ".cr2" or ".nef" or ".arw" or ".dng")
+    {
+        context.Response.Redirect($"/api/photo?file={Uri.EscapeDataString(file)}");
+        return;
+    }
+
+    var contentType = rawExt switch
     {
         // Video
-        ".mp4" => "video/mp4",
-        ".mov" => "video/quicktime",
-        ".m4v" => "video/x-m4v",
+        ".mp4" or ".mov" or ".m4v" => "video/mp4",
         ".mkv" => "video/x-matroska",
         ".avi" => "video/x-msvideo",
         ".webm" => "video/webm",
@@ -95,7 +120,6 @@ app.MapGet("/api/stream", async (string file, HttpContext context, MediaLibraryS
         ".gif" => "image/gif",
         ".bmp" => "image/bmp",
         ".webp" => "image/webp",
-        ".cr2" or ".nef" or ".arw" or ".dng" => "image/jpeg", // RAW served via /api/photo/thumb
         // Audio
         ".mp3" => "audio/mpeg",
         ".wma" => "audio/x-ms-wma",
@@ -169,9 +193,23 @@ app.MapGet("/api/photo/thumb", async (string file, HttpContext context, MediaLib
         return;
     }
 
+
     var ff = HlsStreamManager.FindFfmpeg();
     var ext = Path.GetExtension(fullPath).ToLowerInvariant();
     var isRaw = ext is ".cr2" or ".nef" or ".arw" or ".dng";
+
+    // For RAW photos: extract embedded JPEG first (fast, no FFmpeg needed)
+    if (isRaw)
+    {
+        var rawJpeg = RawJpegExtractor.ExtractLargestJpeg(fullPath);
+        if (rawJpeg != null && rawJpeg.Length > 5000)
+        {
+            thumbCache[file] = rawJpeg;
+            context.Response.ContentLength = rawJpeg.Length;
+            await context.Response.Body.WriteAsync(rawJpeg, context.RequestAborted);
+            return;
+        }
+    }
 
     // For standard images without FFmpeg, resize isn't possible — serve original
     if (ff == null && !isRaw)
@@ -184,10 +222,13 @@ app.MapGet("/api/photo/thumb", async (string file, HttpContext context, MediaLib
     try
     {
         using var process = new Process();
+        var inputArgs = isRaw
+            ? $"-hide_banner -loglevel error -f image2 -i \"{fullPath}\" -strict unofficial -vf \"scale=300:-1\" -vframes 1 -f image2 -c:v mjpeg -q:v 4 pipe:1"
+            : $"-hide_banner -loglevel error -i \"{fullPath}\" -vf \"scale=300:-1\" -vframes 1 -f image2 -c:v mjpeg -q:v 4 pipe:1";
         process.StartInfo = new ProcessStartInfo
         {
             FileName = ff,
-            Arguments = $"-hide_banner -loglevel error -i \"{fullPath}\" -vf \"scale=300:-1\" -vframes 1 -f image2 -c:v mjpeg -q:v 4 pipe:1",
+            Arguments = inputArgs,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -196,8 +237,10 @@ app.MapGet("/api/photo/thumb", async (string file, HttpContext context, MediaLib
         process.Start();
 
         using var ms = new MemoryStream();
+        var stderrTask = process.StandardError.ReadToEndAsync();
         await process.StandardOutput.BaseStream.CopyToAsync(ms, context.RequestAborted);
         await process.WaitForExitAsync(context.RequestAborted);
+        var stderr = await stderrTask;
 
         var bytes = ms.ToArray();
         if (bytes.Length > 0)
@@ -208,6 +251,7 @@ app.MapGet("/api/photo/thumb", async (string file, HttpContext context, MediaLib
         }
         else
         {
+            Console.WriteLine($"  [Thumb] FFmpeg failed for {file}: {stderr.Trim()}");
             context.Response.StatusCode = 500;
         }
     }
@@ -231,28 +275,68 @@ app.MapGet("/api/photo", async (string file, HttpContext context, MediaLibrarySe
         return;
     }
 
-    // Convert RAW ? JPEG using FFmpeg
+    // Convert RAW to JPEG — try built-in extractor first (fast, no FFmpeg needed)
+    // Canon CR2/Nikon NEF/Sony ARW/DNG all embed displayable JPEG previews
+    Console.WriteLine($"  [RAW] Processing {file}");
+    var jpegBytes = RawJpegExtractor.ExtractLargestJpeg(fullPath);
+    if (jpegBytes != null && jpegBytes.Length > 10000)
+    {
+        Console.WriteLine($"  [RAW] Extracted embedded JPEG ({jpegBytes.Length / 1024} KB) from {file}");
+        context.Response.ContentType = "image/jpeg";
+        context.Response.Headers.CacheControl = "max-age=3600";
+        context.Response.ContentLength = jpegBytes.Length;
+        await context.Response.Body.WriteAsync(jpegBytes, context.RequestAborted);
+        return;
+    }
+
+    // Fallback: try FFmpeg decode
     var ff = HlsStreamManager.FindFfmpeg();
     if (ff == null) { context.Response.StatusCode = 500; return; }
 
     try
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        var argsList = new[]
         {
-            FileName = ff,
-            Arguments = $"-hide_banner -loglevel error -i \"{fullPath}\" -vframes 1 -f image2 -c:v mjpeg -q:v 2 pipe:1",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
+            // Approach 1: decode + re-encode as MJPEG
+            $"-hide_banner -loglevel error -f image2 -i \"{fullPath}\" -strict unofficial -vframes 1 -f image2 -c:v mjpeg -q:v 2 pipe:1",
+            // Approach 2: auto-detect input
+            $"-hide_banner -loglevel error -i \"{fullPath}\" -strict unofficial -vframes 1 -f image2 -c:v mjpeg -q:v 2 pipe:1",
         };
-        process.Start();
 
-        context.Response.ContentType = "image/jpeg";
-        context.Response.Headers.CacheControl = "max-age=3600";
-        await process.StandardOutput.BaseStream.CopyToAsync(context.Response.Body, context.RequestAborted);
-        await process.WaitForExitAsync(context.RequestAborted);
+        foreach (var args in argsList)
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = ff,
+                Arguments = args,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            process.Start();
+
+            using var ms = new MemoryStream();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.StandardOutput.BaseStream.CopyToAsync(ms, context.RequestAborted);
+            await process.WaitForExitAsync(context.RequestAborted);
+
+            var bytes = ms.ToArray();
+            if (bytes.Length > 0)
+            {
+                context.Response.ContentType = "image/jpeg";
+                context.Response.Headers.CacheControl = "max-age=3600";
+                context.Response.ContentLength = bytes.Length;
+                await context.Response.Body.WriteAsync(bytes, context.RequestAborted);
+                return;
+            }
+            var stderr = await stderrTask;
+            Console.WriteLine($"  [RAW] FFmpeg attempt failed for {file}: {stderr.Trim()}");
+        }
+
+        Console.WriteLine($"  [RAW] All methods failed for {file}");
+        context.Response.StatusCode = 500;
     }
     catch (OperationCanceledException) { }
     catch { context.Response.StatusCode = 500; }
@@ -266,7 +350,15 @@ app.MapPost("/api/hls/start", (HlsStartReq req, MediaLibraryService lib, HlsStre
     if (!HlsStreamManager.NeedsHlsStream(fullPath)) return Results.BadRequest("Does not need HLS");
     if (!HlsStreamManager.IsFfmpegAvailable()) return Results.BadRequest("FFmpeg not found");
 
-    var session = hls.GetOrStartSession(req.File, fullPath);
+    var quality = req.Quality?.ToLowerInvariant() switch
+    {
+        "low" => HlsStreamManager.VideoQuality.Low,
+        "medium" => HlsStreamManager.VideoQuality.Medium,
+        "high" => HlsStreamManager.VideoQuality.High,
+        _ => HlsStreamManager.VideoQuality.Auto
+    };
+
+    var session = hls.GetOrStartSession(req.File, fullPath, quality);
     return Results.Ok(new
     {
         sessionId = session.SessionId,
@@ -300,14 +392,20 @@ app.MapGet("/api/hls/{id}/stream.m3u8", (string id, HttpContext context, HlsStre
 
 app.MapGet("/api/hls/{id}/{segment}", async (string id, string segment, HttpContext context, HlsStreamManager hls) =>
 {
-    var session = hls.GetSession(id);
-    if (session == null) return Results.NotFound();
+    try
+    {
+        var session = hls.GetSession(id);
+        if (session == null) return Results.NotFound();
 
-    var data = await session.GetSegmentAsync(segment, context.RequestAborted);
-    if (data == null) return Results.NotFound();
+        var data = await session.GetSegmentAsync(segment, context.RequestAborted);
+        if (data == null) return Results.NotFound();
 
-    context.Response.Headers.CacheControl = "max-age=3600";
-    return Results.Bytes(data, "video/mp2t");
+        context.Response.Headers.CacheControl = "max-age=3600";
+        return Results.Bytes(data, "video/mp2t");
+    }
+    catch (OperationCanceledException) { return Results.StatusCode(499); }
+    catch (ObjectDisposedException) { return Results.NotFound(); }
+    catch { return Results.StatusCode(500); }
 });
 
 app.MapPost("/api/hls/stop", async (HttpContext context, HlsStreamManager hls) =>
@@ -359,7 +457,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
 app.Run();
 
 record SetRootRequest(string Path);
-record HlsStartReq(string File);
+record HlsStartReq(string File, string? Quality);
 record FavoriteReq(string Path, string? Label);
 
 static class FirewallHelper

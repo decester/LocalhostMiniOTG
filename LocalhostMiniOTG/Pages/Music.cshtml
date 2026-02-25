@@ -22,7 +22,19 @@
         <button class="btn btn-sm btn-outline-light" id="btnNext" title="Next"><i class="bi bi-skip-end-fill"></i></button>
         <button class="btn btn-sm btn-outline-secondary" id="btnShuffle" title="Shuffle"><i class="bi bi-shuffle"></i></button>
         <button class="btn btn-sm btn-outline-secondary" id="btnRepeat" title="Repeat"><i class="bi bi-arrow-repeat"></i></button>
+        <a class="btn btn-sm btn-outline-info" id="btnDownload" href="#" title="Download" style="display:none;"><i class="bi bi-download"></i></a>
+        <button class="btn btn-sm btn-outline-success" id="btnSaveOffline" title="Save all for offline" style="display:none;"><i class="bi bi-cloud-download me-1"></i>Save Offline</button>
     </div>
+    <div id="offlineStatus" class="text-center mt-2" style="display:none;">
+        <small class="text-success"><i class="bi bi-check-circle me-1"></i><span id="offlineText"></span></small>
+    </div>
+</div>
+
+<!-- Add to Home Screen hint (shown once on iPhone) -->
+<div id="pwaHint" class="alert alert-info alert-dismissible fade show mb-3" style="display:none; font-size:0.85rem;">
+    <i class="bi bi-phone me-1"></i>
+    <strong>Tip:</strong> Tap <i class="bi bi-box-arrow-up"></i> Share then <strong>"Add to Home Screen"</strong> to use this as a standalone music app with offline playback.
+    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert" onclick="localStorage.setItem('pwaHintDismissed','1')"></button>
 </div>
 
 <!-- Favorites -->
@@ -118,6 +130,10 @@
                         <div class="text-light text-truncate" style="font-size:0.9rem;">@t.DisplayName</div>
                         <small class="text-secondary">@t.FormattedSize · @ext</small>
                     </div>
+                    <span class="badge bg-success me-1 track-cached-badge" data-file="@t.RelativePath" style="display:none; font-size:0.6rem;">offline</span>
+                    <a href="/api/download?file=@Uri.EscapeDataString(t.RelativePath)" class="text-secondary me-2" title="Download" onclick="event.stopPropagation();" style="font-size:1rem;">
+                        <i class="bi bi-download"></i>
+                    </a>
                     <i class="bi bi-play-circle track-play-btn text-secondary" style="font-size:1.2rem;"></i>
                 </div>
             }
@@ -170,6 +186,11 @@ else if (Model.Subfolders.Count == 0)
         document.getElementById('trackTitle').textContent = t.name;
         document.getElementById('trackInfo').textContent = t.ext + ' · ' + t.size;
         nowPlaying.style.display = 'block';
+
+        // Show download button for current track
+        const dlBtn = document.getElementById('btnDownload');
+        dlBtn.href = '/api/download?file=' + encodeURIComponent(t.file);
+        dlBtn.style.display = '';
 
         // Highlight active track
         trackItems.forEach(el => el.style.background = 'transparent');
@@ -269,6 +290,84 @@ else if (Model.Subfolders.Count == 0)
             }
             location.reload();
         });
+    }
+
+    // --- PWA: Save Offline / Cache status ---
+    const btnSaveOffline = document.getElementById('btnSaveOffline');
+    const offlineStatus = document.getElementById('offlineStatus');
+    const offlineText = document.getElementById('offlineText');
+
+    // Show Save Offline button when tracks exist
+    if (playlist.length > 0 && 'caches' in window) {
+        btnSaveOffline.style.display = '';
+    }
+
+    // Check which tracks are already cached and show badges
+    async function updateCacheBadges() {
+        if (!('caches' in window)) return;
+        try {
+            const cache = await caches.open('miniOTG-music-v1');
+            let cachedCount = 0;
+            for (const t of playlist) {
+                const url = '/api/stream?file=' + encodeURIComponent(t.file);
+                const match = await cache.match(url);
+                const badge = document.querySelector(`.track-cached-badge[data-file="${CSS.escape(t.file)}"]`);
+                if (match) {
+                    cachedCount++;
+                    if (badge) badge.style.display = '';
+                } else {
+                    if (badge) badge.style.display = 'none';
+                }
+            }
+            if (cachedCount > 0) {
+                offlineStatus.style.display = '';
+                offlineText.textContent = cachedCount + ' / ' + playlist.length + ' tracks saved offline';
+            }
+        } catch {}
+    }
+    updateCacheBadges();
+
+    // Save all tracks for offline
+    btnSaveOffline.addEventListener('click', async function() {
+        if (!('caches' in window)) return;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+        try {
+            const cache = await caches.open('miniOTG-music-v1');
+            let done = 0;
+            for (const t of playlist) {
+                const url = '/api/stream?file=' + encodeURIComponent(t.file);
+                const existing = await cache.match(url);
+                if (!existing) {
+                    try {
+                        const resp = await fetch(url);
+                        await cache.put(url, resp);
+                    } catch {}
+                }
+                done++;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + done + '/' + playlist.length;
+            }
+            this.innerHTML = '<i class="bi bi-check-circle me-1"></i>All saved!';
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success');
+            updateCacheBadges();
+        } catch {
+            this.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>Failed';
+        }
+        setTimeout(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-cloud-download me-1"></i>Save Offline';
+            this.classList.remove('btn-success');
+            this.classList.add('btn-outline-success');
+        }, 3000);
+    });
+
+    // PWA: show "Add to Home Screen" hint on iOS Safari
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (isIos && !isStandalone && !localStorage.getItem('pwaHintDismissed')) {
+        document.getElementById('pwaHint').style.display = '';
     }
 </script>
 <style>
